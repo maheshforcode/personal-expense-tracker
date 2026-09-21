@@ -9,6 +9,7 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig(() => {
   return {
     root: projectRoot,
+    base: './',
     publicDir: path.resolve(projectRoot, 'public'),
     plugins: [react(), tailwindcss()],
     resolve: {
