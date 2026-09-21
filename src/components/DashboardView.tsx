@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Plus,
   ArrowRightLeft,
@@ -9,8 +9,11 @@ import {
   ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
+  Download,
+  Settings,
+  Archive,
 } from 'lucide-react';
-import { Account, Category, TimePeriod, Transaction } from '../types';
+import { Account, Category, ExpenseTrackerBackup, TimePeriod, Transaction } from '../types';
 import {
   calculateAccountSummaries,
   calculatePeriodSummary,
@@ -20,12 +23,14 @@ import {
   getTodayDateString,
 } from '../lib/financials';
 import { CategoryIcon } from './CategoryIcon';
+import { downloadJsonFile } from '../lib/zipExporter';
 
 interface DashboardViewProps {
   transactions: Transaction[];
   accounts: Account[];
   categories: Category[];
   period: TimePeriod;
+  userName?: string;
   onPeriodChange: (p: TimePeriod) => void;
   onOpenAddExpense: (type?: 'EXPENSE' | 'INCOME' | 'TRANSFER') => void;
   onSelectTransaction: (tx: Transaction) => void;
@@ -33,6 +38,7 @@ interface DashboardViewProps {
   onDeleteTransaction: (tx: Transaction) => void;
   onDrillDownCategory: (categoryName: string, transactions: Transaction[]) => void;
   onNavigateToTab: (tab: string) => void;
+  onExportBackup?: () => Promise<ExpenseTrackerBackup>;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -40,6 +46,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   accounts,
   categories,
   period,
+  userName,
   onPeriodChange,
   onOpenAddExpense,
   onSelectTransaction,
@@ -47,7 +54,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onDeleteTransaction,
   onDrillDownCategory,
   onNavigateToTab,
+  onExportBackup,
 }) => {
+  const [isExporting, setIsExporting] = useState(false);
   const range = useMemo(() => getDateRangeForPeriod(period), [period]);
 
   const { summaries: accountSummaries, totalMoney } = useMemo(
@@ -99,8 +108,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="rounded-2xl bg-[#171A1F] border border-[#282D34] p-6 sm:p-7 shadow-xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-[#A8AFB8] mb-1">
-              <span>{greeting}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#A8AFB8] mb-1">
+              <span>
+                {greeting},{' '}
+                <strong className="text-[#F5F7FA] font-semibold">{userName || 'Mahesh ;)'}</strong>
+              </span>
               <span>·</span>
               <span className="text-[#7C5CFC] font-semibold">{periodLabel}</span>
             </div>
@@ -169,6 +181,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Settings & Backup Quick Access Card */}
+      <div className="rounded-2xl bg-[#171A1F] border border-[#282D34] p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-[#7C5CFC]/15 border border-[#7C5CFC]/30 flex items-center justify-center text-[#7C5CFC] shrink-0">
+            <Download className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-[#F5F7FA]">Settings & Backup</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#32D583]/15 text-[#32D583] border border-[#32D583]/30 font-medium shrink-0">
+                Offline Ready
+              </span>
+            </div>
+            <p className="text-xs text-[#A8AFB8] mt-0.5">
+              Export data backup, download JSON archive, or manage categories & profile
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          {onExportBackup && (
+            <button
+              onClick={async () => {
+                if (!onExportBackup) return;
+                setIsExporting(true);
+                try {
+                  const backup = await onExportBackup();
+                  const dateStr = new Date().toISOString().split('T')[0];
+                  downloadJsonFile(backup, `expense-tracker-${dateStr}.expense.json`);
+                } catch (err) {
+                  console.error('Failed to export:', err);
+                } finally {
+                  setIsExporting(false);
+                }
+              }}
+              disabled={isExporting}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#111418] hover:bg-[#1D2127] text-[#F5F7FA] border border-[#282D34] text-xs font-semibold transition active:scale-95 disabled:opacity-50"
+              title="Quick Download JSON Backup"
+            >
+              <Download className="w-3.5 h-3.5 text-[#7C5CFC]" />
+              <span>{isExporting ? 'Exporting...' : 'Export JSON'}</span>
+            </button>
+          )}
+          <button
+            onClick={() => onNavigateToTab('settings')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#7C5CFC] hover:bg-[#6847ea] text-white text-xs font-semibold shadow-md shadow-[#7C5CFC]/20 transition active:scale-95"
+            title="Open Settings & Backup"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>Open Settings</span>
+          </button>
         </div>
       </div>
 

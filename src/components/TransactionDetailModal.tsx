@@ -34,7 +34,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4 backdrop-blur-xs">
-      <div className="w-full max-w-sm rounded-t-2xl sm:rounded-xl bg-[#171A1F] border border-[#282D34] shadow-2xl p-6 space-y-5">
+      <div className="w-full max-w-sm rounded-t-2xl sm:rounded-xl bg-[#171A1F] border border-[#282D34] shadow-2xl p-6 space-y-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CategoryIcon name={transaction.category} className="w-4 h-4" />

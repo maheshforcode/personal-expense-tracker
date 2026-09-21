@@ -10,6 +10,9 @@ import {
   CheckCircle,
   AlertTriangle,
   FileSpreadsheet,
+  User,
+  Check,
+  Edit3,
 } from 'lucide-react';
 import { Account, Budget, Category, ExpenseTrackerBackup, Transaction } from '../types';
 import { generateAndDownloadZipBackup, downloadJsonFile } from '../lib/zipExporter';
@@ -22,6 +25,8 @@ interface SettingsViewProps {
   accounts: Account[];
   categories: Category[];
   budgets: Budget[];
+  userName: string;
+  onUpdateUserName: (name: string) => Promise<void>;
   onExportBackup: () => Promise<ExpenseTrackerBackup>;
   onImportBackup: (backup: ExpenseTrackerBackup, replaceAll: boolean) => Promise<{ added: number; skipped: number }>;
   onClearData: () => Promise<void>;
@@ -35,6 +40,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   accounts,
   categories,
   budgets,
+  userName,
+  onUpdateUserName,
   onExportBackup,
   onImportBackup,
   onClearData,
@@ -46,6 +53,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(userName);
 
   // New Category state
   const [showAddCat, setShowAddCat] = useState(false);
@@ -161,8 +170,76 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div>
         <h2 className="text-xl font-bold text-[#F5F7FA]">Settings & Data</h2>
         <p className="text-xs text-[#A8AFB8] mt-0.5">
-          Local database management, JSON and ZIP backups, categories, and planned budgets
+          User profile, local database management, backups, categories, and planned budgets
         </p>
+      </div>
+
+      {/* User Profile Card */}
+      <div className="rounded-2xl bg-[#171A1F] border border-[#282D34] p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-[#7C5CFC]" />
+            <h3 className="text-sm font-semibold text-[#F5F7FA]">User Profile</h3>
+          </div>
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#7C5CFC]/10 text-[#7C5CFC] border border-[#7C5CFC]/30 font-medium">
+            Personal Account
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#111418] border border-[#282D34]">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-[#7C5CFC]/20 border border-[#7C5CFC]/40 flex items-center justify-center text-[#7C5CFC] font-bold text-base">
+              {(userName || 'Mahesh ;)').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    className="px-2.5 py-1 rounded-lg bg-[#171A1F] border border-[#7C5CFC] text-xs text-[#F5F7FA] focus:outline-hidden"
+                    placeholder="Enter name (e.g. Mahesh ;))"
+                    autoFocus
+                  />
+                  <button
+                    onClick={async () => {
+                      if (nameInput.trim()) {
+                        await onUpdateUserName(nameInput.trim());
+                      }
+                      setIsEditingName(false);
+                    }}
+                    className="p-1.5 rounded-lg bg-[#7C5CFC] hover:bg-[#6847ea] text-white"
+                    title="Save name"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-[#F5F7FA]">{userName || 'Mahesh ;)'}</span>
+                  <button
+                    onClick={() => {
+                      setNameInput(userName || 'Mahesh ;)');
+                      setIsEditingName(true);
+                    }}
+                    className="text-[#737B86] hover:text-[#7C5CFC] transition"
+                    title="Edit Name"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <p className="text-[11px] text-[#A8AFB8] mt-0.5">Primary Profile · Indian Rupee (₹)</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-[#737B86] self-start sm:self-auto">
+            <span className="px-2.5 py-1 rounded-lg bg-[#171A1F] border border-[#282D34] text-[#A8AFB8]">
+              Currency: <strong>INR (₹)</strong>
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Local Storage Status */}

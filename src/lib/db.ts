@@ -209,6 +209,7 @@ export const DEFAULT_BUDGETS: Budget[] = [
 ];
 
 export const DEFAULT_PREFERENCES: AppPreferences = {
+  userName: 'Mahesh ;)',
   currency: 'INR',
   currencySymbol: '₹',
   lastUsedAccountId: 'acc_spending',
@@ -604,7 +605,11 @@ class IndexedDBStorage {
       const req = store.get('app_preferences');
       req.onsuccess = () => {
         if (req.result && req.result.value) {
-          resolve({ ...DEFAULT_PREFERENCES, ...req.result.value });
+          const pref = { ...DEFAULT_PREFERENCES, ...req.result.value };
+          if (pref.userName === 'Mahi / Mahesh' || !pref.userName) {
+            pref.userName = 'Mahesh ;)';
+          }
+          resolve(pref);
         } else {
           resolve(DEFAULT_PREFERENCES);
         }
@@ -767,6 +772,8 @@ export const saveBudget = (b: Budget) => dbStorage.saveBudget(b);
 export const exportFullBackup = () => dbStorage.exportFullBackup();
 export const mergeBackupIntoDatabase = (b: ExpenseTrackerBackup, replaceAll = false) => dbStorage.mergeBackup(b, replaceAll);
 export const clearAllLocalData = () => dbStorage.clearAllData();
+export const getAppPreferences = () => dbStorage.getPreferences();
+export const saveAppPreferences = (pref: AppPreferences) => dbStorage.savePreferences(pref);
 export const getLastUsedAccountId = async () => (await dbStorage.getPreferences()).lastUsedAccountId;
 export const setLastUsedAccountId = async (id: string) => {
   const pref = await dbStorage.getPreferences();

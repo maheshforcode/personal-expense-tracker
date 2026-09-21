@@ -464,7 +464,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           )}
 
           {/* Submit Button */}
-          <div className="pt-2">
+          <div className="pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:pb-2">
             <button
               type="submit"
               disabled={isSubmitting}

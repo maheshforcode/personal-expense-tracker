@@ -9,6 +9,7 @@ import {
   ArrowRightLeft,
   Wallet,
   Loader2,
+  Download,
 } from 'lucide-react';
 import { Account, Budget, Category, ExpenseTrackerBackup, TimePeriod, Transaction, TransactionType } from './types';
 import {
@@ -21,12 +22,15 @@ import {
   deleteTransactionById,
   saveAccount,
   saveCategory,
+  deleteCategoryById,
   saveBudget,
   exportFullBackup,
   mergeBackupIntoDatabase,
   clearAllLocalData,
   getLastUsedAccountId,
   setLastUsedAccountId,
+  getAppPreferences,
+  saveAppPreferences,
 } from './lib/db';
 import { DashboardView } from './components/DashboardView';
 import { TransactionsView } from './components/TransactionsView';
@@ -50,6 +54,7 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [lastUsedAccId, setLastUsedAccId] = useState<string>('acc_spending');
+  const [userName, setUserName] = useState<string>('Mahesh ;)');
 
   // Dashboard filter period
   const [dashboardPeriod, setDashboardPeriod] = useState<TimePeriod>('month');
@@ -81,12 +86,13 @@ export default function App() {
   // Reload data from IndexedDB
   const reloadData = useCallback(async () => {
     try {
-      const [txList, accList, catList, bgtList, lastAcc] = await Promise.all([
+      const [txList, accList, catList, bgtList, lastAcc, prefs] = await Promise.all([
         getAllTransactions(),
         getAllAccounts(),
         getAllCategories(),
         getAllBudgets(),
         getLastUsedAccountId(),
+        getAppPreferences(),
       ]);
 
       setTransactions(txList);
@@ -94,6 +100,9 @@ export default function App() {
       setCategories(catList);
       setBudgets(bgtList);
       setLastUsedAccId(lastAcc || (accList.length > 1 ? accList[1].id : accList[0]?.id || 'acc_spending'));
+      if (prefs?.userName) {
+        setUserName(prefs.userName === 'Mahi / Mahesh' ? 'Mahesh ;)' : prefs.userName);
+      }
     } catch (err) {
       console.error('Failed to load IndexedDB data:', err);
     }
@@ -168,9 +177,16 @@ export default function App() {
 
   // Handle Delete Category
   const handleDeleteCategory = async (catId: string) => {
-    const { deleteCategoryById } = await import('./lib/db');
     await deleteCategoryById(catId);
     await reloadData();
+  };
+
+  // Handle Update User Profile Name
+  const handleUpdateUserName = async (name: string) => {
+    const pref = await getAppPreferences();
+    pref.userName = name;
+    await saveAppPreferences(pref);
+    setUserName(name);
   };
 
   // Handle Save Budget
@@ -251,11 +267,14 @@ export default function App() {
               <div className="w-8 h-8 rounded-xl bg-[#7C5CFC] flex items-center justify-center text-white font-bold shadow-md shadow-[#7C5CFC]/25">
                 ₹
               </div>
-              <div>
-                <h1 className="text-sm font-bold text-[#F5F7FA] leading-tight tracking-tight">
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-[#F5F7FA] leading-tight tracking-tight truncate">
                   Expense Tracker
                 </h1>
-                <span className="text-[10px] text-[#737B86] font-medium">Local-First · V1</span>
+                <span className="text-[10px] text-[#A8AFB8] font-semibold flex items-center gap-1.5 truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#32D583] shrink-0"></span>
+                  <span className="truncate">{userName}</span>
+                </span>
               </div>
             </div>
 
@@ -343,27 +362,44 @@ export default function App() {
 
       {/* Mobile Top Header (visible on mobile only) */}
       <header className="flex md:hidden items-center justify-between px-4 py-3 border-b border-[#282D34] bg-[#171A1F] sticky top-0 z-30">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#7C5CFC] flex items-center justify-center text-white text-xs font-bold">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-[#7C5CFC] flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm shadow-[#7C5CFC]/30">
             ₹
           </div>
-          <span className="text-sm font-bold text-[#F5F7FA]">Expense Tracker</span>
+          <div className="min-w-0">
+            <span className="text-sm font-bold text-[#F5F7FA] block leading-tight truncate">Expense Tracker</span>
+            <span className="text-[10px] text-[#A8AFB8] font-medium block leading-none truncate">{userName}</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <OfflineIndicator />
           <PWAInstallButton />
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 ${
+              activeTab === 'settings'
+                ? 'bg-[#7C5CFC] border-[#7C5CFC] text-white shadow-md shadow-[#7C5CFC]/25'
+                : 'bg-[#1D2127] border-[#282D34] text-[#A8AFB8] hover:text-[#F5F7FA]'
+            }`}
+            title="Settings & Backup"
+            aria-label="Settings and Backup"
+          >
+            <Download className="w-3.5 h-3.5 text-[#7C5CFC]" />
+            <span>Backup</span>
+          </button>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 overflow-y-auto">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 overflow-y-auto pb-28 md:pb-8">
         {activeTab === 'dashboard' && (
           <DashboardView
             transactions={transactions}
             accounts={accounts}
             categories={categories}
             period={dashboardPeriod}
+            userName={userName}
             onPeriodChange={setDashboardPeriod}
             onOpenAddExpense={handleOpenAddExpense}
             onSelectTransaction={(tx) => setMobileDetailTransaction(tx)}
@@ -371,6 +407,7 @@ export default function App() {
             onDeleteTransaction={(tx) => setDeletingTransaction(tx)}
             onDrillDownCategory={(name, txs) => handleDrillDown(name, txs)}
             onNavigateToTab={(t) => setActiveTab(t as typeof activeTab)}
+            onExportBackup={handleExportBackup}
           />
         )}
 
@@ -413,6 +450,8 @@ export default function App() {
             accounts={accounts}
             categories={categories}
             budgets={budgets}
+            userName={userName}
+            onUpdateUserName={handleUpdateUserName}
             onExportBackup={handleExportBackup}
             onImportBackup={handleImportBackup}
             onClearData={handleClearAllData}
@@ -424,56 +463,67 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar (fixed) */}
-      <nav className="flex md:hidden items-center justify-around fixed bottom-0 left-0 right-0 h-16 bg-[#171A1F] border-t border-[#282D34] z-40 px-2">
+      <nav className="flex md:hidden items-center justify-between fixed bottom-0 left-0 right-0 h-16 bg-[#171A1F] border-t border-[#282D34] z-40 px-1 pb-[env(safe-area-inset-bottom)]">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center justify-center py-1 flex-1 ${
-            activeTab === 'dashboard' ? 'text-[#7C5CFC]' : 'text-[#737B86]'
+          className={`flex flex-col items-center justify-center py-1 flex-1 transition ${
+            activeTab === 'dashboard' ? 'text-[#7C5CFC]' : 'text-[#737B86] hover:text-[#A8AFB8]'
           }`}
         >
-          <LayoutDashboard className="w-5 h-5" />
+          <LayoutDashboard className="w-4.5 h-4.5" />
           <span className="text-[10px] mt-1 font-medium">Home</span>
         </button>
 
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`flex flex-col items-center justify-center py-1 flex-1 ${
-            activeTab === 'transactions' ? 'text-[#7C5CFC]' : 'text-[#737B86]'
+          className={`flex flex-col items-center justify-center py-1 flex-1 transition ${
+            activeTab === 'transactions' ? 'text-[#7C5CFC]' : 'text-[#737B86] hover:text-[#A8AFB8]'
           }`}
         >
-          <ReceiptText className="w-5 h-5" />
+          <ReceiptText className="w-4.5 h-4.5" />
           <span className="text-[10px] mt-1 font-medium">History</span>
-        </button>
-
-        {/* Center Prominent Add Button */}
-        <button
-          onClick={() => handleOpenAddExpense('EXPENSE')}
-          className="w-12 h-12 -mt-5 rounded-full bg-[#7C5CFC] hover:bg-[#6847ea] text-white flex items-center justify-center shadow-lg shadow-[#7C5CFC]/35 active:scale-95 transition"
-          aria-label="Add Expense"
-        >
-          <Plus className="w-6 h-6" />
         </button>
 
         <button
           onClick={() => setActiveTab('accounts')}
-          className={`flex flex-col items-center justify-center py-1 flex-1 ${
-            activeTab === 'accounts' ? 'text-[#7C5CFC]' : 'text-[#737B86]'
+          className={`flex flex-col items-center justify-center py-1 flex-1 transition ${
+            activeTab === 'accounts' ? 'text-[#7C5CFC]' : 'text-[#737B86] hover:text-[#A8AFB8]'
           }`}
         >
-          <Wallet className="w-5 h-5" />
+          <Wallet className="w-4.5 h-4.5" />
           <span className="text-[10px] mt-1 font-medium">Accounts</span>
         </button>
 
         <button
           onClick={() => setActiveTab('analysis')}
-          className={`flex flex-col items-center justify-center py-1 flex-1 ${
-            activeTab === 'analysis' ? 'text-[#7C5CFC]' : 'text-[#737B86]'
+          className={`flex flex-col items-center justify-center py-1 flex-1 transition ${
+            activeTab === 'analysis' ? 'text-[#7C5CFC]' : 'text-[#737B86] hover:text-[#A8AFB8]'
           }`}
         >
-          <BarChart3 className="w-5 h-5" />
+          <BarChart3 className="w-4.5 h-4.5" />
           <span className="text-[10px] mt-1 font-medium">Analysis</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex flex-col items-center justify-center py-1 flex-1 transition ${
+            activeTab === 'settings' ? 'text-[#7C5CFC]' : 'text-[#737B86] hover:text-[#A8AFB8]'
+          }`}
+        >
+          <Settings className="w-4.5 h-4.5" />
+          <span className="text-[10px] mt-1 font-medium">Backup</span>
+        </button>
       </nav>
+
+      {/* Floating Action Button for Add Expense on Mobile */}
+      <button
+        onClick={() => handleOpenAddExpense('EXPENSE')}
+        className="fixed bottom-20 right-4 md:hidden z-40 w-13 h-13 rounded-full bg-[#7C5CFC] hover:bg-[#6847ea] text-white flex items-center justify-center shadow-xl shadow-[#7C5CFC]/40 active:scale-95 transition"
+        aria-label="Add Expense"
+        title="Add Expense"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
 
       {/* Add / Edit Expense Modal */}
       <AddExpenseModal

@@ -50,6 +50,7 @@ export interface Budget {
 }
 
 export interface AppPreferences {
+  userName?: string;
   currency: string;
   currencySymbol: string;
   lastUsedAccountId: string;
