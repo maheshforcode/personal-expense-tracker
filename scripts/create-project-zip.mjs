@@ -12,6 +12,7 @@ function addDirectoryToZip(dirPath, zipFolder) {
       item === 'node_modules' ||
       item === '.git' ||
       item === 'dist' ||
+      item === '.next' ||
       item === '.aistudio' ||
       item.endsWith('.zip')
     ) {
