@@ -4,11 +4,11 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Personal Expense Tracker - Mahesh ;)',
   description:
-    'A modern, responsive, mobile-first local-first personal expense tracker for Mahesh ;) with offline IndexedDB storage, multi-account transfers, and detailed financial analysis.',
+    'A modern, responsive, mobile-first local-first personal expense tracker for Mahesh ;) with offline IndexedDB storage, multi-account transfers, prepaid recharges, and detailed financial analysis.',
   openGraph: {
     title: 'Personal Expense Tracker - Mahesh ;)',
     description:
-      'A modern, responsive, mobile-first local-first personal expense tracker for Mahesh ;) with offline IndexedDB storage, multi-account transfers, and detailed financial analysis.',
+      'A modern, responsive, mobile-first local-first personal expense tracker for Mahesh ;) with offline IndexedDB storage, multi-account transfers, prepaid recharges, and detailed financial analysis.',
     type: 'website',
   },
   twitter: {

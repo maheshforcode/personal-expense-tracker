@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRightLeft, Wallet, Plus, ArrowUpRight, ArrowDownRight, Edit3, Check } from 'lucide-react';
-import { Account, Transaction } from '../types';
-import { calculateAccountSummaries, formatCurrency, formatDateDisplay } from '../lib/financials';
+import { ArrowRightLeft, Wallet, Plus, ArrowUpRight, ArrowDownRight, Edit3, Check, Zap } from 'lucide-react';
+import { Account, PrepaidWallet, Transaction } from '../types';
+import { calculateAccountSummaries, calculatePrepaidWallets, formatCurrency, formatDateDisplay } from '../lib/financials';
 
 interface AccountsViewProps {
   accounts: Account[];
   transactions: Transaction[];
   onOpenTransfer: () => void;
+  onOpenRecharge?: (prepaidId?: string) => void;
+  onOpenSpendPrepaid?: (prepaidId: string) => void;
   onUpdateInitialBalance: (accountId: string, newBalance: number) => Promise<void>;
   onSelectTransaction: (tx: Transaction) => void;
 }
@@ -15,6 +17,8 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
   accounts,
   transactions,
   onOpenTransfer,
+  onOpenRecharge,
+  onOpenSpendPrepaid,
   onUpdateInitialBalance,
   onSelectTransaction,
 }) => {
@@ -22,6 +26,8 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
     () => calculateAccountSummaries(accounts, transactions),
     [accounts, transactions]
   );
+
+  const prepaidWallets = useMemo(() => calculatePrepaidWallets(transactions), [transactions]);
 
   // Edit initial balance inline state
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -58,13 +64,24 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={onOpenTransfer}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#53B1FD] hover:bg-[#429fe5] text-gray-950 text-xs font-bold shadow-md transition active:scale-[0.98] self-start sm:self-auto"
-        >
-          <ArrowRightLeft className="w-4 h-4" />
-          <span>Transfer Money</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {onOpenRecharge && (
+            <button
+              onClick={() => onOpenRecharge()}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#1D2127] hover:bg-[#282D34] text-[#9B8AFB] border border-[#282D34] text-xs font-semibold shadow-md transition active:scale-[0.98]"
+            >
+              <Zap className="w-4 h-4 text-[#9B8AFB]" />
+              <span>Recharge Card</span>
+            </button>
+          )}
+          <button
+            onClick={onOpenTransfer}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#53B1FD] hover:bg-[#429fe5] text-gray-950 text-xs font-bold shadow-md transition active:scale-[0.98]"
+          >
+            <ArrowRightLeft className="w-4 h-4" />
+            <span>Transfer Money</span>
+          </button>
+        </div>
       </div>
 
       {/* Total Money Card */}
@@ -204,6 +221,79 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
           );
         })}
       </div>
+
+      {/* Prepaid Cards & Balances */}
+      {prepaidWallets.length > 0 && (
+        <div className="rounded-2xl bg-[#171A1F] border border-[#282D34] p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#9B8AFB]" />
+                <h3 className="text-sm font-semibold text-[#F5F7FA]">Prepaid Cards & Services</h3>
+              </div>
+              <p className="text-xs text-[#737B86]">Dedicated balances funded via Spending Account recharges</p>
+            </div>
+            {onOpenRecharge && (
+              <button
+                onClick={() => onOpenRecharge()}
+                className="text-xs font-semibold text-[#9B8AFB] hover:underline"
+              >
+                + Recharge Card
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {prepaidWallets.map((wallet) => (
+              <div
+                key={wallet.id}
+                className="rounded-xl bg-[#111418] border border-[#282D34] p-4 flex flex-col justify-between space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#F5F7FA]">💳 {wallet.name}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#9B8AFB]/15 text-[#9B8AFB] border border-[#9B8AFB]/30 font-medium">
+                    Prepaid
+                  </span>
+                </div>
+
+                <div>
+                  <div className="text-[10px] uppercase font-semibold text-[#737B86] tracking-wider">
+                    Balance Available
+                  </div>
+                  <div className="text-2xl font-extrabold text-[#32D583] mt-0.5">
+                    {formatCurrency(wallet.balance)}
+                  </div>
+                  <div className="text-[11px] text-[#737B86] mt-1 flex justify-between">
+                    <span>Credited: {formatCurrency(wallet.totalCredited)}</span>
+                    <span>Spent: {formatCurrency(wallet.totalSpent)}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2 border-t border-[#282D34]">
+                  {onOpenRecharge && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenRecharge(wallet.id)}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-[#1D2127] hover:bg-[#282D34] text-[11px] font-medium text-[#9B8AFB] border border-[#282D34] transition text-center"
+                    >
+                      + Top-up
+                    </button>
+                  )}
+                  {onOpenSpendPrepaid && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenSpendPrepaid(wallet.id)}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-[#1D2127] hover:bg-[#282D34] text-[11px] font-medium text-[#F5F7FA] border border-[#282D34] transition text-center"
+                    >
+                      - Spend
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Transfer History */}
       <div className="rounded-2xl bg-[#171A1F] border border-[#282D34] p-5 space-y-4">

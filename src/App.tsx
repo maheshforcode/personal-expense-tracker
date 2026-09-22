@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   LayoutDashboard,
   ReceiptText,
@@ -13,7 +13,7 @@ import {
   Loader2,
   Download,
 } from 'lucide-react';
-import { Account, Budget, Category, ExpenseTrackerBackup, TimePeriod, Transaction, TransactionType } from './types';
+import { Account, Budget, Category, ExpenseTrackerBackup, PrepaidWallet, TimePeriod, Transaction, TransactionType } from './types';
 import {
   initIndexedDB,
   getAllTransactions,
@@ -34,6 +34,7 @@ import {
   getAppPreferences,
   saveAppPreferences,
 } from './lib/db';
+import { calculatePrepaidWallets } from './lib/financials';
 import { DashboardView } from './components/DashboardView';
 import { TransactionsView } from './components/TransactionsView';
 import { AccountsView } from './components/AccountsView';
@@ -64,7 +65,11 @@ export default function App() {
   // Modals state
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [addExpenseDefaultType, setAddExpenseDefaultType] = useState<TransactionType>('EXPENSE');
+  const [preselectedPrepaidId, setPreselectedPrepaidId] = useState<string | undefined>(undefined);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  // Derived prepaid wallets
+  const prepaidWallets = useMemo(() => calculatePrepaidWallets(transactions), [transactions]);
 
   // Deletion modal state
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
@@ -207,14 +212,16 @@ export default function App() {
   };
 
   // Open Add Expense modal
-  const handleOpenAddExpense = (type: TransactionType = 'EXPENSE') => {
+  const handleOpenAddExpense = (type: TransactionType = 'EXPENSE', prepaidId?: string) => {
     setAddExpenseDefaultType(type);
+    setPreselectedPrepaidId(prepaidId);
     setEditingTransaction(null);
     setIsAddExpenseOpen(true);
   };
 
   // Open Edit modal
   const handleOpenEdit = (tx: Transaction) => {
+    setPreselectedPrepaidId(undefined);
     setEditingTransaction(tx);
     setIsAddExpenseOpen(true);
   };
@@ -430,6 +437,8 @@ export default function App() {
             accounts={accounts}
             transactions={transactions}
             onOpenTransfer={() => handleOpenAddExpense('TRANSFER')}
+            onOpenRecharge={(prepaidId) => handleOpenAddExpense('RECHARGE', prepaidId)}
+            onOpenSpendPrepaid={(prepaidId) => handleOpenAddExpense('EXPENSE', prepaidId)}
             onUpdateInitialBalance={handleUpdateInitialBalance}
             onSelectTransaction={(tx) => setMobileDetailTransaction(tx)}
           />
@@ -533,11 +542,14 @@ export default function App() {
         onClose={() => {
           setIsAddExpenseOpen(false);
           setEditingTransaction(null);
+          setPreselectedPrepaidId(undefined);
         }}
         onSave={handleSaveTransaction}
         onAddNewCategory={handleQuickAddCategory}
         accounts={accounts}
         categories={categories}
+        prepaidWallets={prepaidWallets}
+        preselectedPrepaidId={preselectedPrepaidId}
         lastUsedAccountId={lastUsedAccId}
         editTransaction={editingTransaction}
         defaultType={addExpenseDefaultType}

@@ -12,11 +12,13 @@ import {
   Download,
   Settings,
   Archive,
+  Zap,
 } from 'lucide-react';
-import { Account, Category, ExpenseTrackerBackup, TimePeriod, Transaction } from '../types';
+import { Account, Category, ExpenseTrackerBackup, PrepaidWallet, TimePeriod, Transaction, TransactionType } from '../types';
 import {
   calculateAccountSummaries,
   calculatePeriodSummary,
+  calculatePrepaidWallets,
   formatCurrency,
   formatDateDisplay,
   getDateRangeForPeriod,
@@ -32,7 +34,7 @@ interface DashboardViewProps {
   period: TimePeriod;
   userName?: string;
   onPeriodChange: (p: TimePeriod) => void;
-  onOpenAddExpense: (type?: 'EXPENSE' | 'INCOME' | 'TRANSFER') => void;
+  onOpenAddExpense: (type?: TransactionType, prepaidId?: string) => void;
   onSelectTransaction: (tx: Transaction) => void;
   onEditTransaction: (tx: Transaction) => void;
   onDeleteTransaction: (tx: Transaction) => void;
@@ -68,6 +70,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     () => calculatePeriodSummary(transactions, range, categories),
     [transactions, range, categories]
   );
+
+  const prepaidWallets = useMemo(() => calculatePrepaidWallets(transactions), [transactions]);
 
   // Time greeting
   const greeting = useMemo(() => {
@@ -153,6 +157,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             >
               <ArrowRightLeft className="w-4 h-4" />
               <span>Transfer</span>
+            </button>
+            <button
+              onClick={() => onOpenAddExpense('RECHARGE')}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl bg-[#1D2127] hover:bg-[#282D34] text-[#9B8AFB] border border-[#282D34] text-xs font-medium transition"
+              title="Prepaid Recharge (e.g. Metro Card)"
+            >
+              <Zap className="w-4 h-4 text-[#9B8AFB]" />
+              <span>Recharge</span>
             </button>
           </div>
         </div>
@@ -484,6 +496,72 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* Prepaid Cards & Balances (Appears when prepaid recharges exist) */}
+      {prepaidWallets.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#9B8AFB]" />
+              <h3 className="text-sm font-semibold text-[#F5F7FA]">Prepaid Cards & Balances</h3>
+            </div>
+            <button
+              onClick={() => onOpenAddExpense('RECHARGE')}
+              className="text-xs text-[#9B8AFB] hover:text-[#b4a6fc] font-medium flex items-center gap-1"
+            >
+              <span>+ Top-up / Recharge</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {prepaidWallets.map((wallet) => (
+              <div
+                key={wallet.id}
+                className="rounded-xl bg-[#171A1F] border border-[#282D34] p-4 flex flex-col justify-between space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#F5F7FA] flex items-center gap-1.5">
+                    💳 {wallet.name}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#9B8AFB]/15 text-[#9B8AFB] border border-[#9B8AFB]/30 font-medium">
+                    Prepaid Card
+                  </span>
+                </div>
+
+                <div>
+                  <div className="text-[10px] uppercase font-semibold text-[#737B86] tracking-wider">
+                    Available Balance
+                  </div>
+                  <div className="text-2xl font-extrabold text-[#32D583] mt-0.5">
+                    {formatCurrency(wallet.balance)}
+                  </div>
+                  <div className="text-[11px] text-[#737B86] mt-1 flex justify-between">
+                    <span>Recharged: {formatCurrency(wallet.totalCredited)}</span>
+                    <span>Spent: {formatCurrency(wallet.totalSpent)}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1 border-t border-[#282D34]">
+                  <button
+                    type="button"
+                    onClick={() => onOpenAddExpense('RECHARGE', wallet.id)}
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-[#111418] hover:bg-[#1D2127] text-[11px] font-medium text-[#9B8AFB] border border-[#282D34] transition text-center"
+                  >
+                    + Recharge
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenAddExpense('EXPENSE', wallet.id)}
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-[#111418] hover:bg-[#1D2127] text-[11px] font-medium text-[#F5F7FA] border border-[#282D34] transition text-center"
+                  >
+                    - Pay with Card
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent Transactions List */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -517,6 +595,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               const acc = accounts.find((a) => a.id === tx.accountId);
               const isExpense = tx.type === 'EXPENSE';
               const isIncome = tx.type === 'INCOME';
+              const isRecharge = tx.type === 'RECHARGE';
+              const isPrepaidExpense = isExpense && tx.paymentMode === 'prepaid';
 
               return (
                 <div
@@ -527,13 +607,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="flex items-center gap-3 min-w-0">
                     <CategoryIcon name={tx.category} className="w-4 h-4" />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-[#F5F7FA] truncate">
-                        {tx.description || tx.category}
+                      <div className="text-xs font-semibold text-[#F5F7FA] truncate flex items-center gap-1.5">
+                        <span>{tx.description || (isRecharge ? `${tx.prepaidName || 'Prepaid'} Recharge` : tx.category)}</span>
+                        {isRecharge && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-[#9B8AFB]/15 text-[#9B8AFB] font-medium border border-[#9B8AFB]/30">
+                            Recharge
+                          </span>
+                        )}
+                        {isPrepaidExpense && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-[#53B1FD]/15 text-[#53B1FD] font-medium border border-[#53B1FD]/30">
+                            Prepaid
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-[#737B86] flex items-center gap-1.5 truncate mt-0.5">
                         <span>{tx.category}</span>
                         <span>·</span>
-                        <span>{acc?.name || 'Account'}</span>
+                        {isRecharge ? (
+                          <span className="text-[#A8AFB8]">
+                            {acc?.name || 'Account'} → {tx.prepaidName || 'Card'}{' '}
+                            <span className="text-[#32D583]">(+₹{tx.creditedAmount || tx.amount})</span>
+                          </span>
+                        ) : isPrepaidExpense ? (
+                          <span className="text-[#53B1FD]">💳 {tx.prepaidName || 'Card'}</span>
+                        ) : (
+                          <span>{acc?.name || 'Account'}</span>
+                        )}
                         <span>·</span>
                         <span>{formatDateDisplay(tx.date)}</span>
                       </div>
@@ -547,10 +646,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           ? 'text-[#F97066]'
                           : isIncome
                           ? 'text-[#32D583]'
+                          : isRecharge
+                          ? 'text-[#9B8AFB]'
                           : 'text-[#53B1FD]'
                       }`}
                     >
-                      {isExpense ? '-' : isIncome ? '+' : ''}
+                      {isExpense || isRecharge ? '-' : isIncome ? '+' : ''}
                       {formatCurrency(tx.amount)}
                     </div>
                   </div>

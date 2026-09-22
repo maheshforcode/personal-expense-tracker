@@ -1,4 +1,4 @@
-import { Account, Budget, Category, TimePeriod, Transaction } from '../types';
+import { Account, Budget, Category, PrepaidWallet, TimePeriod, Transaction } from '../types';
 
 export function getTodayDateString(): string {
   const now = new Date();
@@ -163,6 +163,12 @@ export function calculateAccountSummaries(accounts: Account[], transactions: Tra
       if (tx.type === 'INCOME' && tx.accountId === acc.id) {
         totalIncome += tx.amount;
       } else if (tx.type === 'EXPENSE' && tx.accountId === acc.id) {
+        // Only deduct from spending account if not paid from a prepaid balance
+        if (tx.paymentMode !== 'prepaid') {
+          totalExpenses += tx.amount;
+        }
+      } else if (tx.type === 'RECHARGE' && tx.accountId === acc.id) {
+        // Total Amount Paid is deducted from the selected spending/bank account
         totalExpenses += tx.amount;
       } else if (tx.type === 'TRANSFER') {
         if (tx.accountId === acc.id) {
@@ -189,6 +195,105 @@ export function calculateAccountSummaries(accounts: Account[], transactions: Tra
   });
 
   return { summaries, totalMoney };
+}
+
+export function calculatePrepaidWallets(transactions: Transaction[]): PrepaidWallet[] {
+  const walletMap = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      category: string;
+      totalCredited: number;
+      totalSpent: number;
+      totalFees: number;
+      lastUsedDate?: string;
+      transactionCount: number;
+    }
+  >();
+
+  const getWalletKey = (name: string, id?: string) => {
+    if (id && id.trim()) return id.trim();
+    return 'prep_' + name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  };
+
+  transactions.forEach((tx) => {
+    if (tx.isDeleted) return;
+
+    if (tx.type === 'RECHARGE') {
+      const name = (tx.prepaidName || tx.subcategory || tx.category || 'Prepaid Card').trim();
+      const key = getWalletKey(name, tx.prepaidId);
+      const credited = typeof tx.creditedAmount === 'number' ? tx.creditedAmount : Math.max(0, tx.amount - (tx.fee || 0));
+      const fee = tx.fee || 0;
+
+      const existing = walletMap.get(key) || {
+        id: key,
+        name,
+        category: tx.category || 'Transport',
+        totalCredited: 0,
+        totalSpent: 0,
+        totalFees: 0,
+        lastUsedDate: tx.date,
+        transactionCount: 0,
+      };
+
+      existing.totalCredited = Math.round((existing.totalCredited + credited) * 100) / 100;
+      existing.totalFees = Math.round((existing.totalFees + fee) * 100) / 100;
+      existing.transactionCount += 1;
+      if (!existing.lastUsedDate || tx.date > existing.lastUsedDate) {
+        existing.lastUsedDate = tx.date;
+      }
+      walletMap.set(key, existing);
+    } else if (tx.type === 'EXPENSE' && tx.paymentMode === 'prepaid') {
+      const name = (tx.prepaidName || tx.subcategory || 'Prepaid Card').trim();
+      const key = getWalletKey(name, tx.prepaidId);
+
+      const existing = walletMap.get(key) || {
+        id: key,
+        name,
+        category: tx.category || 'Transport',
+        totalCredited: 0,
+        totalSpent: 0,
+        totalFees: 0,
+        lastUsedDate: tx.date,
+        transactionCount: 0,
+      };
+
+      existing.totalSpent = Math.round((existing.totalSpent + tx.amount) * 100) / 100;
+      existing.transactionCount += 1;
+      if (!existing.lastUsedDate || tx.date > existing.lastUsedDate) {
+        existing.lastUsedDate = tx.date;
+      }
+      walletMap.set(key, existing);
+    }
+  });
+
+  const wallets: PrepaidWallet[] = [];
+  walletMap.forEach((w) => {
+    const isTransport =
+      w.name.toLowerCase().includes('metro') ||
+      w.name.toLowerCase().includes('fastag') ||
+      w.name.toLowerCase().includes('bus') ||
+      w.category.toLowerCase().includes('transport');
+
+    const isMobile =
+      w.name.toLowerCase().includes('mobile') ||
+      w.name.toLowerCase().includes('phone') ||
+      w.name.toLowerCase().includes('jio') ||
+      w.name.toLowerCase().includes('airtel') ||
+      w.category.toLowerCase().includes('recharge');
+
+    wallets.push({
+      ...w,
+      balance: Math.round((w.totalCredited - w.totalSpent) * 100) / 100,
+      icon: isTransport ? 'Train' : isMobile ? 'Smartphone' : 'CreditCard',
+      color: isTransport ? '#53B1FD' : isMobile ? '#32D583' : '#7C5CFC',
+    });
+  });
+
+  // Sort by balance descending, then by last used date
+  wallets.sort((a, b) => b.balance - a.balance || (b.lastUsedDate || '').localeCompare(a.lastUsedDate || ''));
+  return wallets;
 }
 
 export interface PeriodSummary {
@@ -263,6 +368,26 @@ export function calculatePeriodSummary(
       dailyMap.set(t.date, dayExisting + t.amount);
     } else if (t.type === 'TRANSFER') {
       transfers += t.amount;
+    } else if (t.type === 'RECHARGE') {
+      const rechargeFee = t.fee || 0;
+      if (rechargeFee > 0) {
+        expenses += rechargeFee;
+        expenseCount++;
+        if (rechargeFee > largestExpense) largestExpense = rechargeFee;
+        if (rechargeFee < smallestExpense) smallestExpense = rechargeFee;
+
+        // category: attribute fee to recharge category
+        const catName = t.category || 'Recharge & Internet';
+        const existing = categoryMap.get(catName) || { amount: 0, count: 0 };
+        categoryMap.set(catName, {
+          amount: existing.amount + rechargeFee,
+          count: existing.count + 1,
+        });
+
+        // daily
+        const dayExisting = dailyMap.get(t.date) || 0;
+        dailyMap.set(t.date, dayExisting + rechargeFee);
+      }
     }
   });
 

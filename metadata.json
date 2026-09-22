@@ -1,6 +1,6 @@
 {
   "name": "Personal Expense Tracker - Mahesh ;)",
-  "description": "A modern, responsive, mobile-first local-first personal expense tracker for Mahesh ;) with offline IndexedDB storage, multi-account transfers, and detailed financial analysis.",
+  "description": "A modern, responsive, mobile-first local-first personal expense tracker for Mahesh ;) with offline IndexedDB storage, multi-account transfers, prepaid recharges, and detailed financial analysis.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

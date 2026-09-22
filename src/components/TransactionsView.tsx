@@ -88,11 +88,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
         const matchesDesc = (tx.description || '').toLowerCase().includes(q);
         const matchesCat = (tx.category || '').toLowerCase().includes(q);
         const matchesSub = (tx.subcategory || '').toLowerCase().includes(q);
+        const matchesPrepaid = (tx.prepaidName || '').toLowerCase().includes(q);
         const matchesAcc = (acc?.name || '').toLowerCase().includes(q);
         const matchesToAcc = (toAcc?.name || '').toLowerCase().includes(q);
         const matchesAmount = tx.amount.toString().includes(q);
 
-        if (!matchesDesc && !matchesCat && !matchesSub && !matchesAcc && !matchesToAcc && !matchesAmount) {
+        if (!matchesDesc && !matchesCat && !matchesSub && !matchesPrepaid && !matchesAcc && !matchesToAcc && !matchesAmount) {
           return false;
         }
       }
@@ -260,6 +261,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                 <option value="EXPENSE">Expense Only</option>
                 <option value="INCOME">Income Only</option>
                 <option value="TRANSFER">Transfer Only</option>
+                <option value="RECHARGE">Recharge Only</option>
               </select>
             </div>
 
@@ -367,6 +369,8 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                     const isExpense = tx.type === 'EXPENSE';
                     const isIncome = tx.type === 'INCOME';
                     const isTransfer = tx.type === 'TRANSFER';
+                    const isRecharge = tx.type === 'RECHARGE';
+                    const isPrepaidExpense = isExpense && tx.paymentMode === 'prepaid';
 
                     return (
                       <div
@@ -381,8 +385,18 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                           <CategoryIcon name={tx.category} className="w-4 h-4" />
 
                           <div className="min-w-0 flex-1">
-                            <div className="text-xs font-semibold text-[#F5F7FA] truncate">
-                              {tx.description || tx.category}
+                            <div className="text-xs font-semibold text-[#F5F7FA] truncate flex items-center gap-1.5">
+                              <span>{tx.description || (isRecharge ? `${tx.prepaidName || 'Prepaid'} Recharge` : tx.category)}</span>
+                              {isRecharge && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-[#9B8AFB]/15 text-[#9B8AFB] font-medium border border-[#9B8AFB]/30">
+                                  Recharge
+                                </span>
+                              )}
+                              {isPrepaidExpense && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-[#53B1FD]/15 text-[#53B1FD] font-medium border border-[#53B1FD]/30">
+                                  Prepaid
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-[#737B86] flex items-center gap-1.5 truncate mt-0.5">
                               <span className="text-[#A8AFB8]">{tx.category}</span>
@@ -396,6 +410,16 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                               {isTransfer ? (
                                 <span className="flex items-center gap-1 text-[#53B1FD]">
                                   {acc?.name || 'Main'} → {toAcc?.name || 'Spending'}
+                                </span>
+                              ) : isRecharge ? (
+                                <span className="text-[#A8AFB8]">
+                                  {acc?.name || 'Spending'} → <strong className="text-[#F5F7FA]">{tx.prepaidName || 'Card'}</strong>{' '}
+                                  <span className="text-[#32D583]">(+₹{tx.creditedAmount || tx.amount})</span>
+                                  {tx.fee ? <span className="text-[#737B86]"> · fee ₹{tx.fee}</span> : null}
+                                </span>
+                              ) : isPrepaidExpense ? (
+                                <span className="text-[#53B1FD]">
+                                  💳 {tx.prepaidName || 'Prepaid Card'}
                                 </span>
                               ) : (
                                 <span>{acc?.name || 'Spending Account'}</span>
@@ -413,10 +437,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                                 ? 'text-[#F97066]'
                                 : isIncome
                                 ? 'text-[#32D583]'
+                                : isRecharge
+                                ? 'text-[#9B8AFB]'
                                 : 'text-[#53B1FD]'
                             }`}
                           >
-                            {isExpense ? '-' : isIncome ? '+' : ''}
+                            {isExpense || isRecharge ? '-' : isIncome ? '+' : ''}
                             {formatCurrency(tx.amount)}
                           </div>
 

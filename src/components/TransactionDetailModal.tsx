@@ -31,6 +31,8 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   const isExpense = transaction.type === 'EXPENSE';
   const isIncome = transaction.type === 'INCOME';
   const isTransfer = transaction.type === 'TRANSFER';
+  const isRecharge = transaction.type === 'RECHARGE';
+  const isPrepaidExpense = isExpense && transaction.paymentMode === 'prepaid';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4 backdrop-blur-xs">
@@ -38,8 +40,20 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CategoryIcon name={transaction.category} className="w-4 h-4" />
-            <span className="text-xs font-semibold text-[#A8AFB8] uppercase tracking-wider">
-              {transaction.type}
+            <span
+              className={`text-xs font-semibold uppercase tracking-wider ${
+                isRecharge
+                  ? 'text-[#9B8AFB]'
+                  : isPrepaidExpense
+                  ? 'text-[#53B1FD]'
+                  : 'text-[#A8AFB8]'
+              }`}
+            >
+              {isRecharge
+                ? 'RECHARGE'
+                : isPrepaidExpense
+                ? 'EXPENSE (PREPAID)'
+                : transaction.type}
             </span>
           </div>
           <button
@@ -58,16 +72,29 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                 ? 'text-[#F97066]'
                 : isIncome
                 ? 'text-[#32D583]'
+                : isRecharge
+                ? 'text-[#9B8AFB]'
                 : 'text-[#53B1FD]'
             }`}
           >
-            {isExpense ? '-' : isIncome ? '+' : ''}
+            {isExpense || isRecharge ? '-' : isIncome ? '+' : ''}
             {formatCurrency(transaction.amount)}
           </div>
           <div className="text-sm font-medium text-[#F5F7FA]">
-            {transaction.category}
-            {transaction.subcategory && (
-              <span className="text-xs font-normal text-[#A8AFB8]"> · {transaction.subcategory}</span>
+            {isRecharge ? (
+              <span>
+                {transaction.prepaidName || 'Prepaid Card'} ·{' '}
+                <span className="text-[#32D583]">
+                  +{formatCurrency(transaction.creditedAmount || transaction.amount - (transaction.fee || 0))} credited
+                </span>
+              </span>
+            ) : (
+              <>
+                {transaction.category}
+                {transaction.subcategory && (
+                  <span className="text-xs font-normal text-[#A8AFB8]"> · {transaction.subcategory}</span>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -86,20 +113,56 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             <span className="text-[#F5F7FA] font-medium">{formatDateDisplay(transaction.date)}</span>
           </div>
 
-          <div className="p-3 flex justify-between items-center">
-            <span className="text-[#737B86]">Account</span>
-            <span className="text-[#F5F7FA] font-medium flex items-center gap-1.5">
-              {isTransfer ? (
-                <>
-                  <span>{sourceAccount?.name || 'Account'}</span>
-                  <ArrowRightLeft className="w-3 h-3 text-[#53B1FD]" />
-                  <span>{destinationAccount?.name || 'Account'}</span>
-                </>
-              ) : (
-                sourceAccount?.name || 'Spending Account'
-              )}
-            </span>
-          </div>
+          {isRecharge ? (
+            <>
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-[#737B86]">Amount Paid</span>
+                <span className="text-[#F97066] font-semibold">{formatCurrency(transaction.amount)}</span>
+              </div>
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-[#737B86]">Credited to Card</span>
+                <span className="text-[#32D583] font-semibold">
+                  +{formatCurrency(transaction.creditedAmount || transaction.amount - (transaction.fee || 0))}
+                </span>
+              </div>
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-[#737B86]">Fee / Charge</span>
+                <span className="text-[#F5F7FA] font-medium">
+                  {formatCurrency(transaction.fee || 0)}
+                </span>
+              </div>
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-[#737B86]">Prepaid Card</span>
+                <span className="text-[#53B1FD] font-medium">💳 {transaction.prepaidName || 'Card'}</span>
+              </div>
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-[#737B86]">Deducted From</span>
+                <span className="text-[#F5F7FA] font-medium">{sourceAccount?.name || 'Spending Account'}</span>
+              </div>
+            </>
+          ) : (
+            <div className="p-3 flex justify-between items-center">
+              <span className="text-[#737B86]">
+                {isPrepaidExpense ? 'Paid Via' : 'Account'}
+              </span>
+              <span className="text-[#F5F7FA] font-medium flex items-center gap-1.5">
+                {isTransfer ? (
+                  <>
+                    <span>{sourceAccount?.name || 'Account'}</span>
+                    <ArrowRightLeft className="w-3 h-3 text-[#53B1FD]" />
+                    <span>{destinationAccount?.name || 'Account'}</span>
+                  </>
+                ) : isPrepaidExpense ? (
+                  <span className="text-[#53B1FD]">
+                    💳 {transaction.prepaidName || 'Prepaid Card'}{' '}
+                    <span className="text-[10px] text-[#737B86]">(Bank unaffected)</span>
+                  </span>
+                ) : (
+                  sourceAccount?.name || 'Spending Account'
+                )}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
